@@ -1,16 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import * as cameraUtilsPkg from "@mediapipe/camera_utils";
-  import * as drawingUtilsPkg from "@mediapipe/drawing_utils";
-  import * as faceMeshPkg from "@mediapipe/face_mesh";
   import Chart from "chart.js/auto";
-
-  function getFaceMesh() {
-    return (window as any).FaceMesh || (faceMeshPkg as any).FaceMesh || (faceMeshPkg as any).default?.FaceMesh;
-  }
-  function getDrawLandmarks() {
-    return (window as any).drawLandmarks || (drawingUtilsPkg as any).drawLandmarks || (drawingUtilsPkg as any).default?.drawLandmarks;
-  }
 
   let videoElement: HTMLVideoElement;
   let canvasElement: HTMLCanvasElement;
@@ -54,7 +44,7 @@
         labels: timeLabels,
         datasets: [
           {
-            label: "Pupil X (Left Eye)",
+            label: "Left Pupil X",
             data: xData,
             borderColor: "#38bdf8",
             backgroundColor: "#38bdf8",
@@ -64,7 +54,7 @@
             pointRadius: 1,
           },
           {
-            label: "Pupil Y (Left Eye)",
+            label: "Left Pupil Y",
             data: yData,
             borderColor: "#c084fc",
             backgroundColor: "#c084fc",
@@ -106,15 +96,15 @@
     });
   }
 
-  async function loadFaceMeshClass() {
-    let cls = getFaceMesh();
-    if (cls) return cls;
+  async function ensureFaceMeshLoaded(): Promise<any> {
+    if (typeof window === "undefined") return null;
+    if ((window as any).FaceMesh) return (window as any).FaceMesh;
 
     return new Promise((resolve) => {
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js";
       script.crossOrigin = "anonymous";
-      script.onload = () => resolve(getFaceMesh());
+      script.onload = () => resolve((window as any).FaceMesh);
       script.onerror = () => resolve(null);
       document.head.appendChild(script);
     });
@@ -125,7 +115,7 @@
     statusMessage = "Requesting Camera Access...";
 
     try {
-      // 1. Get User Media Stream
+      // 1. Get Camera Media Stream
       mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 640 },
@@ -141,13 +131,13 @@
       }
 
       isTracking = true;
-      statusMessage = "Camera Active • Initializing MediaPipe...";
+      statusMessage = "Camera Connected • Loading MediaPipe FaceMesh...";
 
-      // Start camera video render loop immediately
+      // Start continuous video rendering frame loop
       processFrame();
 
-      // 2. Load FaceMesh
-      const FaceMeshClass: any = await loadFaceMeshClass();
+      // 2. Load and Instantiate MediaPipe FaceMesh
+      const FaceMeshClass = await ensureFaceMeshLoaded();
       if (FaceMeshClass) {
         faceMesh = new FaceMeshClass({
           locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
@@ -163,10 +153,10 @@
         faceMesh.onResults(onResults);
         statusMessage = "Pupil Tracking Active";
       } else {
-        statusMessage = "Camera Active (Loading MediaPipe...)";
+        statusMessage = "Camera Active (MediaPipe Load Pending)";
       }
     } catch (err: any) {
-      console.error("Camera access error:", err);
+      console.error("Camera permission / access error:", err);
       statusMessage = `Camera Error: ${err?.message || "Permission Denied"}`;
       stopTracking();
     }
@@ -191,7 +181,7 @@
         try {
           await faceMesh.send({ image: videoElement });
         } catch (e) {
-          console.warn("FaceMesh frame notice:", e);
+          // ignore frame drops
         }
       }
     }
@@ -215,7 +205,7 @@
       faceMesh = null;
     }
     isTracking = false;
-    statusMessage = "Tracking Stopped";
+    statusMessage = "Tracking Offline";
   }
 
   function calculateEAR(landmarks: any[]) {
@@ -243,11 +233,7 @@
     if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
       const landmarks = results.multiFaceLandmarks[0];
 
-      // Draw Face Contours
-      const drawFn = getDrawLandmarks();
-      if (drawFn) drawFn(ctx, landmarks, { color: "#27272a", lineWidth: 0.5 });
-
-      // Pupil / Iris landmarks (468 = Left Pupil, 473 = Right Pupil)
+      // Left Pupil (468) & Right Pupil (473)
       const leftIris = landmarks[468] || landmarks[469];
       const rightIris = landmarks[473] || landmarks[474];
 
@@ -258,15 +244,15 @@
         const lx = leftIris.x * canvasElement.width;
         const ly = leftIris.y * canvasElement.height;
 
-        // Bright Glowing Cyan Ring over Left Pupil
+        // Glowing Cyan Target Ring over Left Pupil
         ctx.beginPath();
-        ctx.arc(lx, ly, 9, 0, 2 * Math.PI);
+        ctx.arc(lx, ly, 10, 0, 2 * Math.PI);
         ctx.strokeStyle = "#38bdf8";
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 3;
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(lx, ly, 3.5, 0, 2 * Math.PI);
+        ctx.arc(lx, ly, 4, 0, 2 * Math.PI);
         ctx.fillStyle = "#38bdf8";
         ctx.fill();
       }
@@ -278,22 +264,22 @@
         const rx = rightIris.x * canvasElement.width;
         const ry = rightIris.y * canvasElement.height;
 
-        // Bright Glowing Purple Ring over Right Pupil
+        // Glowing Purple Target Ring over Right Pupil
         ctx.beginPath();
-        ctx.arc(rx, ry, 9, 0, 2 * Math.PI);
+        ctx.arc(rx, ry, 10, 0, 2 * Math.PI);
         ctx.strokeStyle = "#c084fc";
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 3;
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(rx, ry, 3.5, 0, 2 * Math.PI);
+        ctx.arc(rx, ry, 4, 0, 2 * Math.PI);
         ctx.fillStyle = "#c084fc";
         ctx.fill();
       }
 
       ear = parseFloat(calculateEAR(landmarks).toFixed(4));
 
-      // Plot live data points on Chart.js line graph
+      // Push real-time metrics to Chart.js graph
       const nowStr = new Date().toLocaleTimeString();
       timeLabels.push(nowStr);
       xData.push(leftIrisX);
@@ -315,7 +301,7 @@
 </script>
 
 <div class="space-y-6">
-  <!-- Controls Bar -->
+  <!-- Status & Controls -->
   <div class="p-4 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-between">
     <div class="flex items-center space-x-3">
       <span class="w-3 h-3 rounded-full {isTracking ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}"></span>
@@ -341,7 +327,7 @@
     </div>
   </div>
 
-  <!-- Real-time Pupil Metrics Row -->
+  <!-- Telemetry Metrics Cards -->
   <div class="grid grid-cols-3 gap-4 text-center">
     <div class="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
       <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">Left Pupil X</div>
@@ -357,9 +343,9 @@
     </div>
   </div>
 
-  <!-- Grid: Camera Stream + Real-time Pupil Graph -->
+  <!-- Main Viewport: Camera Video + Chart.js Line Graph -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Camera Video Stream -->
+    <!-- Camera Feed Canvas -->
     <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-3 relative flex items-center justify-center min-h-[380px]">
       <video bind:this={videoElement} class="absolute opacity-0 pointer-events-none w-1 h-1" playsinline muted></video>
       <canvas
@@ -370,7 +356,7 @@
       ></canvas>
     </div>
 
-    <!-- Live Pupil Movement Line Graph -->
+    <!-- Real-time Chart.js Line Graph -->
     <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col justify-between min-h-[380px]">
       <h3 class="text-sm font-semibold text-zinc-200 mb-2">Live Pupil Movement Graph</h3>
       <div class="flex-1 w-full h-[320px] relative">
