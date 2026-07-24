@@ -1,10 +1,11 @@
 
 <script lang="ts">
-  import drawingUtilsPkg from "@mediapipe/drawing_utils";
-  import faceMeshPkg from "@mediapipe/face_mesh";
-
-  const drawLandmarks = (drawingUtilsPkg as any).drawLandmarks || (drawingUtilsPkg as any).default?.drawLandmarks || drawingUtilsPkg;
-  const FaceMesh = (faceMeshPkg as any).FaceMesh || (faceMeshPkg as any).default?.FaceMesh || faceMeshPkg;
+  function getDrawLandmarks() {
+    return (window as any).drawLandmarks;
+  }
+  function getFaceMeshClass() {
+    return (window as any).FaceMesh;
+  }
   type Results = any;
   import { onDestroy, onMount } from "svelte";
   import { writable, get } from "svelte/store";
@@ -203,10 +204,13 @@
     offscreenCtx = processingCanvas.getContext("2d");
 
     // Initialize MediaPipe FaceMesh
-    faceMesh = new FaceMesh({
-      locateFile: (file) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-    });
+    const FaceMeshClass = getFaceMeshClass();
+    if (FaceMeshClass) {
+      faceMesh = new FaceMeshClass({
+        locateFile: (file: string) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+      });
+    }
     faceMesh.setOptions({
       maxNumFaces: 1,
       refineLandmarks: true,
@@ -238,30 +242,29 @@
 
       if (results.multiFaceLandmarks) {
         for (const landmarks of results.multiFaceLandmarks) {
-          const irisCenters = getLandmarks(landmarks, [
-            LEFT_IRIS_CENTER,
-            RIGHT_IRIS_CENTER,
-          ]);
           if (offscreenCtx) {
-            drawLandmarks(offscreenCtx, irisCenters, {
-              color: "#FF0000",
-              lineWidth: 2,
-            });
+            const leftIris = landmarks[LEFT_IRIS_CENTER];
+            const rightIris = landmarks[RIGHT_IRIS_CENTER];
 
-            const eyeCorners = getLandmarks(landmarks, [
-              LEFT_EYE_CORNER,
-              RIGHT_EYE_CORNER,
-            ]);
-            drawLandmarks(offscreenCtx, eyeCorners, {
-              color: "#FF0000",
-              lineWidth: 1,
-            });
+            if (leftIris) {
+              const lx = leftIris.x * processingCanvas.width;
+              const ly = leftIris.y * processingCanvas.height;
+              offscreenCtx.beginPath();
+              offscreenCtx.arc(lx, ly, 8, 0, 2 * Math.PI);
+              offscreenCtx.strokeStyle = "#38bdf8";
+              offscreenCtx.lineWidth = 2;
+              offscreenCtx.stroke();
+            }
 
-            const noseTip = getLandmarks(landmarks, [NOSE_TIP]);
-            drawLandmarks(offscreenCtx, noseTip, {
-              color: "#FF0000",
-              lineWidth: 1,
-            });
+            if (rightIris) {
+              const rx = rightIris.x * processingCanvas.width;
+              const ry = rightIris.y * processingCanvas.height;
+              offscreenCtx.beginPath();
+              offscreenCtx.arc(rx, ry, 8, 0, 2 * Math.PI);
+              offscreenCtx.strokeStyle = "#c084fc";
+              offscreenCtx.lineWidth = 2;
+              offscreenCtx.stroke();
+            }
           }
 
           timestamp = performance.now() - starttime;
@@ -493,7 +496,7 @@
   <input
     type="file"
     accept="video/*"
-    on:change={handleVideoUpload}
+    onchange={handleVideoUpload}
     id="fileInput"
     class="block text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-950 hover:file:bg-white cursor-pointer"
     disabled={isLoadingFile}
@@ -517,14 +520,14 @@
         />
         <div class="flex justify-end gap-2">
           <button
-            on:click={() => isModalVisible.set(false)}
-            class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded transition-colors"
+            onclick={() => isModalVisible.set(false)}
+            class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
-            on:click={endSession}
-            class="px-3 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium text-sm rounded transition-colors"
+            onclick={endSession}
+            class="px-3 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium text-sm rounded transition-colors cursor-pointer"
           >
             Save Session
           </button>

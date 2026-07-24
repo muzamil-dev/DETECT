@@ -1,248 +1,105 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
-  import { writable } from "svelte/store";
 
-  const serverAddress = import.meta.env.PUBLIC_SERVER_ADDRESS;
+  let affine = false;
+  let minMax = false;
+  let plotting = true;
+  let sensitivity = 1.0;
+  let saveStatus = "";
 
-  let userSettings = writable({
-    affine: false,
-    min_max: false,
-    plotting: false,
-    sensitivity: 1.0,
+  onMount(() => {
+    if (typeof window !== "undefined") {
+      affine = localStorage.getItem("setting_affine") === "true";
+      minMax = localStorage.getItem("setting_min_max") === "true";
+      plotting = localStorage.getItem("setting_plotting") !== "false"; // default true
+      sensitivity = parseFloat(localStorage.getItem("setting_sensitivity") || "1.0");
+    }
   });
 
-  let isLoading = writable(true); // Prevents UI from showing before data is ready
-
-  async function fetchUserSettings() {
-    try {
-      const userId = sessionStorage.getItem("userId");
-      if (!userId) {
-        error = "User ID not found in session storage.";
-        return;
-      }
-      const response = await fetch(`${serverAddress}/getUserSettings?user_id=${userId}`, {
-        method: "GET",
-      });
-      if (response.ok) {
-        const data = await response.json();
-        userSettings.update(settings => {
-          settings.affine = data.affine;
-          settings.min_max = data.min_max;
-          settings.plotting = data.plotting;
-          settings.sensitivity = data.sensitivity;
-          return settings;
-        });
-      } else {
-        console.error("Failed to fetch user settings:", response.statusText);
-      }
-    } catch (error) {
-      console.error("Error fetching user settings:", error);
-    } finally {
-      isLoading.set(false); // Data is ready, allow UI to load
+  function saveSettings() {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("setting_affine", String(affine));
+      localStorage.setItem("setting_min_max", String(minMax));
+      localStorage.setItem("setting_plotting", String(plotting));
+      localStorage.setItem("setting_sensitivity", String(sensitivity));
     }
+    saveStatus = "Settings saved successfully!";
+    setTimeout(() => (saveStatus = ""), 3000);
   }
-
-  async function updateNormalization(value) {
-    try {
-      const userId = sessionStorage.getItem("userId");
-      if (!userId) {
-        error = "User ID not found in session storage.";
-        return;
-      }
-      const response = await fetch(`${serverAddress}/updateNormalization`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: parseFloat(userId), normalization: value }),
-      });
-      if (!response.ok) throw new Error("Failed to update normalization");
-
-      userSettings.update(settings => {
-        settings.affine = value;
-        return settings;
-      });
-
-    } catch (error) {
-      console.error("Error updating normalization:", error);
-    }
-  }
-
-  async function updateGraphing(value) {
-    try {
-      const userId = sessionStorage.getItem("userId");
-      if (!userId) {
-        error = "User ID not found in session storage.";
-        return;
-      }
-      const response = await fetch(`${serverAddress}/updateGraphing`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: parseFloat(userId), plotting: value }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update plotting");
-
-      userSettings.update(settings => {
-        settings.plotting = value;
-        return settings;
-      });
-    } catch (error) {
-      console.error("Error updating plotting:", error);
-    }
-  }
-
-  async function updateMinMax(value) {
-    try {
-      const userId = sessionStorage.getItem("userId");
-      if (!userId) {
-        error = "User ID not found in session storage.";
-        return;
-      }
-      const response = await fetch(`${serverAddress}/updateMinMaxSetting`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: parseFloat(userId), minMax: value }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update minMax");
-
-      userSettings.update(settings => {
-        settings.min_max = value;
-        return settings;
-      });
-    } catch (error) {
-      console.error("Error updating minMax:", error);
-    }
-  }
-
-  async function updateSensitivity(value) {
-    const serverAddress = import.meta.env.PUBLIC_SERVER_ADDRESS;
-
-    try {
-      const userId = sessionStorage.getItem("userId");
-      if (!userId) {
-        error = "User ID not found in session storage.";
-        return;
-      }
-      const response = await fetch(`${serverAddress}/updateSensitivity`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: parseFloat(userId), sensitivity: parseFloat(value) }),
-      });
-      if (!response.ok) throw new Error("Failed to update sensitivity");
-
-      userSettings.update(settings => {
-        settings.sensitivity = value;
-        return settings;
-      });
-    } catch (error) {
-      console.error("Error updating sensitivity:", error);
-    }
-  }
-  // Run API call once when component is mounted
-  // onMount(fetchUserSettings);
-
-  onMount(async () => 
-    fetchUserSettings()
-  )
 </script>
-  
-<!-- Tracking & Analysis Settings -->
-<div class="flex flex-col gap-4 text-base-content">
-  <label
-    class="flex items-center justify-between bg-base-200 p-4 rounded-lg shadow-md"
-  >
-    Normalization
-    <input
-      type="checkbox"
-      class="toggle-switch"
-      bind:checked={$userSettings.affine}
-      on:change={(e) => updateNormalization(e.target.checked)}
-    />
-  </label>
-</div>
 
-<div class="flex flex-col gap-4 text-base-content">
-  <label
-    class="flex items-center justify-between bg-base-200 p-4 rounded-lg shadow-md"
-  >
-    Min/Max
-    <input
-      type="checkbox"
-      class="toggle-switch"
-      bind:checked={$userSettings.min_max}
-      on:change={(e) => updateMinMax(e.target.checked)}
-    />
-  </label>
-</div>
+<div class="space-y-6 max-w-2xl mx-auto">
+  <div class="p-6 bg-zinc-900 border border-zinc-800 rounded-lg space-y-6">
+    <h2 class="text-xl font-bold text-zinc-100 border-b border-zinc-800 pb-3">Tracking & Analytics Settings</h2>
 
-<div class="flex flex-col gap-4 text-base-content">
-  <label
-    class="flex items-center justify-between bg-base-200 p-4 rounded-lg shadow-md"
-  >
-    Graphing
-    <input
-      type="checkbox"
-      class="toggle-switch"
-      bind:checked={$userSettings.plotting}
-      on:change={(e) => updateGraphing(e.target.checked)}
-    />
-  </label>
-</div>
+    {#if saveStatus}
+      <div class="p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-sm rounded">
+        {saveStatus}
+      </div>
+    {/if}
 
-<!-- Sensitivity Slider -->
-<label class="flex items-center justify-between bg-base-400 p-4 rounded-lg shadow-md text-white">
-  Sensitivity
-  <div class="relative w-full ml-4">
-    <input
-      type="range"
-      class="w-full appearance-none h-2 bg-gray-300 rounded-lg slider-thumb"
-      min="0.50"
-      max="2.00"
-      step="0.01"
-      bind:value={$userSettings.sensitivity}
-      on:input={(e) => updateSensitivity(e.target.value)}
-      id="sensitivity-slider"
-    />
-    <div class="flex justify-between text-xs text-gray-400 mt-1">
-      <span>0.50</span>
-      <span class="text-white font-bold">{$userSettings.sensitivity}</span>
-      <span>2.00</span>
+    <!-- Affine Normalization -->
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-sm font-semibold text-zinc-200">Face Normalization (Affine)</div>
+        <div class="text-xs text-zinc-500">Correct pupil tracking coordinates for head tilt and position shift</div>
+      </div>
+      <input
+        type="checkbox"
+        bind:checked={affine}
+        onchange={saveSettings}
+        class="w-5 h-5 rounded accent-sky-400 cursor-pointer"
+      />
+    </div>
+
+    <!-- Min/Max Normalization -->
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-sm font-semibold text-zinc-200">Min/Max Variance Scaling</div>
+        <div class="text-xs text-zinc-500">Dynamic scaling of velocity and movement variance</div>
+      </div>
+      <input
+        type="checkbox"
+        bind:checked={minMax}
+        onchange={saveSettings}
+        class="w-5 h-5 rounded accent-sky-400 cursor-pointer"
+      />
+    </div>
+
+    <!-- Real-time Plotting -->
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-sm font-semibold text-zinc-200">Real-Time Graph Plotting</div>
+        <div class="text-xs text-zinc-500">Display 60 FPS pupil movement line graph on live camera view</div>
+      </div>
+      <input
+        type="checkbox"
+        bind:checked={plotting}
+        onchange={saveSettings}
+        class="w-5 h-5 rounded accent-sky-400 cursor-pointer"
+      />
+    </div>
+
+    <!-- Sensitivity Slider -->
+    <div class="space-y-2">
+      <div class="flex justify-between items-center text-sm">
+        <span class="font-semibold text-zinc-200">Tracking Sensitivity</span>
+        <span class="font-mono text-sky-400 font-bold">{sensitivity}x</span>
+      </div>
+      <input
+        type="range"
+        min="0.5"
+        max="2.0"
+        step="0.05"
+        bind:value={sensitivity}
+        oninput={saveSettings}
+        class="w-full accent-sky-400 cursor-pointer"
+      />
+      <div class="flex justify-between text-xs text-zinc-500 font-mono">
+        <span>0.5x (Low)</span>
+        <span>1.0x (Standard)</span>
+        <span>2.0x (High)</span>
+      </div>
     </div>
   </div>
-</label>
-
-<style>
-  .toggle-switch {
-    appearance: none;
-    width: 50px;
-    height: 26px;
-    background-color: var(--color-primary);
-    border-radius: 20px;
-    position: relative;
-    transition: background 0.3s ease-in-out;
-    cursor: pointer;
-    outline: none;
-  }
-
-  .toggle-switch::before {
-    content: "";
-    position: absolute;
-    width: 22px;
-    height: 22px;
-    background-color: var(--color-base-100);
-    border-radius: 50%;
-    top: 2px;
-    left: 2px;
-    transition: transform 0.3s ease-in-out;
-  }
-
-  .toggle-switch:checked {
-    background-color: var(--color-success);
-  }
-
-  .toggle-switch:checked::before {
-    transform: translateX(24px);
-  }
-</style>
-  
-  
+</div>
