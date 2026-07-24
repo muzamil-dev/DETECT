@@ -1,22 +1,10 @@
 services:
   - type: web
-    name: detect-backend
-    env: go
-    rootDir: backend
-    buildCommand: go build -o main cmd/api/main.go
-    startCommand: ./main
+    name: detect
+    env: docker
+    dockerfilePath: Dockerfile
     envVars:
       - key: PORT
         value: 8080
       - key: JWT_SECRET
         generateValue: true
-
-  - type: web
-    name: detect-frontend
-    env: node
-    rootDir: frontend
-    buildCommand: bun install && bun run build
-    startCommand: bun run preview
-    envVars:
-      - key: PUBLIC_SERVER_ADDRESS
-        sync: false

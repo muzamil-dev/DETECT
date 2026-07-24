@@ -441,10 +441,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 	environment := os.Getenv("CLIENT_URL")
 	isProd := os.Getenv("IS_PROD") == "true"
 	if environment == "" {
-		log.Fatalf("CLIENT_URL is not set in the .env file")
+		environment = "*"
 	}
 	corsOptions := cors.Options{
-		AllowedOrigins:   []string{environment, "https://accounts.google.com", "*.vercel.app"},
+		AllowedOrigins:   []string{environment, "https://accounts.google.com", "*.vercel.app", "*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -456,7 +456,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	}
 	r.Use(cors.Handler(corsOptions))
 
-	r.Get("/", s.HelloWorldHandler)
+	r.Get("/api/health", s.healthHandler)
 	r.Get("/health", s.healthHandler)
 	r.Get("/websocket", WebSocketHandler)
 	r.Post("/login", s.handleLogin)
@@ -483,6 +483,34 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Post("/updateNormalization", handleUpdateNormalization)
 	r.Post("/updateGraphing", handleUpdateGraphing)
 	r.Get("/getUserSettings", handleGetUserSettings)
+
+	// Serve static frontend assets if available
+	staticDir := os.Getenv("STATIC_DIR")
+	if staticDir == "" {
+		if _, err := os.Stat("../frontend/dist/client"); err == nil {
+			staticDir = "../frontend/dist/client"
+		} else if _, err := os.Stat("./dist/client"); err == nil {
+			staticDir = "./dist/client"
+		} else if _, err := os.Stat("../frontend/dist"); err == nil {
+			staticDir = "../frontend/dist"
+		} else if _, err := os.Stat("./dist"); err == nil {
+			staticDir = "./dist"
+		}
+	}
+
+	if staticDir != "" {
+		if _, err := os.Stat(staticDir); err == nil {
+			fileServer := http.FileServer(http.Dir(staticDir))
+			r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				path := staticDir + r.URL.Path
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					http.ServeFile(w, r, staticDir+"/index.html")
+					return
+				}
+				fileServer.ServeHTTP(w, r)
+			}))
+		}
+	}
 
 	return r
 }
