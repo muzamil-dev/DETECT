@@ -283,29 +283,32 @@
 
       if (results.multiFaceLandmarks) {
         for (const landmarks of results.multiFaceLandmarks) {
-          const irisCenters = getLandmarks(landmarks, [
-            LEFT_IRIS_CENTER,
-            RIGHT_IRIS_CENTER,
-          ]);
-          drawLandmarks(canvasCtx, irisCenters, {
-            color: "#FF0000",
-            lineWidth: 2,
-          });
+          const leftIris = landmarks[LEFT_IRIS_CENTER];
+          const rightIris = landmarks[RIGHT_IRIS_CENTER];
 
-          const eyeCorners = getLandmarks(landmarks, [
-            LEFT_EYE_CORNER,
-            RIGHT_EYE_CORNER,
-          ]);
-          drawLandmarks(canvasCtx, eyeCorners, {
-            color: "#FF0000",
-            lineWidth: 1,
-          });
+          if (leftIris) {
+            const lx = leftIris.x * canvasEl.width;
+            const ly = leftIris.y * canvasEl.height;
+            canvasCtx.beginPath();
+            canvasCtx.arc(lx, ly, 6, 0, 2 * Math.PI);
+            canvasCtx.fillStyle = "#00FF00";
+            canvasCtx.fill();
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = "#FFFFFF";
+            canvasCtx.stroke();
+          }
 
-          const noseTip = getLandmarks(landmarks, [NOSE_TIP]);
-          drawLandmarks(canvasCtx, noseTip, {
-            color: "#FF0000",
-            lineWidth: 1,
-          });
+          if (rightIris) {
+            const rx = rightIris.x * canvasEl.width;
+            const ry = rightIris.y * canvasEl.height;
+            canvasCtx.beginPath();
+            canvasCtx.arc(rx, ry, 6, 0, 2 * Math.PI);
+            canvasCtx.fillStyle = "#00FF00";
+            canvasCtx.fill();
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = "#FFFFFF";
+            canvasCtx.stroke();
+          }
 
           timestamp = performance.now() - starttime;
 
@@ -396,8 +399,8 @@
       class="flex justify-center items-center w-full"
       style="width: {$shouldShowGraph ? '50%' : '100%'}"
     >
-      <!-- Hidden video (used by FaceMesh) -->
-      <video bind:this={videoEl} class="hidden">
+      <!-- Video element for FaceMesh -->
+      <video bind:this={videoEl} class="absolute opacity-0 pointer-events-none w-1 h-1" playsinline muted>
         <track kind="captions" />
       </video>
 
@@ -422,14 +425,14 @@
   <!-- Control buttons at the bottom -->
   <div class="flex gap-3 w-full mt-4 font-medium text-sm">
     <button
-      on:click={startCapture}
-      class="flex-1 py-2 px-4 bg-zinc-100 hover:bg-white text-zinc-950 rounded transition-colors duration-150"
+      onclick={startCapture}
+      class="flex-1 py-2 px-4 bg-zinc-100 hover:bg-white text-zinc-950 rounded transition-colors duration-150 cursor-pointer"
     >
       Start Camera Tracking
     </button>
     <button
-      on:click={stopCapture}
-      class="flex-1 py-2 px-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 rounded transition-colors duration-150"
+      onclick={stopCapture}
+      class="flex-1 py-2 px-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 rounded transition-colors duration-150 cursor-pointer"
       disabled={!$canStop}
     >
       Stop Tracking
@@ -453,13 +456,13 @@
 
         <div class="flex justify-end gap-2">
           <button
-            on:click={closeModal}
+            onclick={closeModal}
             class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded transition-colors"
           >
             Cancel
           </button>
           <button
-            on:click={onSubmitSessionName}
+            onclick={onSubmitSessionName}
             class="px-3 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium text-sm rounded transition-colors"
           >
             Save Session
