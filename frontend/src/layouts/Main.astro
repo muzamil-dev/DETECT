@@ -1,0 +1,21 @@
+---
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+---
+
+<!DOCTYPE html>
+<html lang="en" class="bg-zinc-950 text-zinc-100">
+  <head>
+    <title>DETECT — Eye Movement Analytics</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="DETECT - Real-time Eye Movement Tracking & Analytics powered by MediaPipe and Go" />
+  </head>
+  <body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col font-sans antialiased">
+    <Header />
+    <main class="flex-1 w-full max-w-7xl mx-auto px-4 py-6">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

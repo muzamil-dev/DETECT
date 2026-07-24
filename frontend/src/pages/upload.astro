@@ -1,0 +1,14 @@
+---
+import Main from "../layouts/Main.astro";
+import VideoUploadProcessing from "../components/VideoUploadProcessing.svelte";
+---
+
+<Main>
+  <div class="space-y-4">
+    <div class="border-b border-zinc-800 pb-4">
+      <h1 class="text-2xl font-bold text-zinc-100">Video Upload Eye Tracking</h1>
+      <p class="text-sm text-zinc-400 mt-1">Upload a video file to run MediaPipe eye movement tracking and graph analysis.</p>
+    </div>
+    <VideoUploadProcessing client:load />
+  </div>
+</Main>

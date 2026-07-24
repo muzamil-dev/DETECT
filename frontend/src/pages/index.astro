@@ -1,0 +1,58 @@
+---
+import LandingLayout from "../layouts/LandingLayout.astro";
+---
+
+<LandingLayout>
+  <div class="max-w-4xl mx-auto py-12 px-4 text-center">
+    <h1 class="text-4xl font-bold tracking-tight text-zinc-100 mb-3">
+      DETECT
+    </h1>
+    <p class="text-lg text-zinc-400 max-w-2xl mx-auto mb-8 leading-relaxed">
+      Real-time eye movement tracking and graph analytics powered by MediaPipe and Go.
+    </p>
+
+    <div class="flex flex-wrap justify-center gap-4 mb-16">
+      <a
+        href="/live"
+        class="px-5 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium text-sm rounded transition-colors"
+      >
+        Launch Live Eye Tracking
+      </a>
+      <a
+        href="/login"
+        class="px-5 py-2.5 border border-zinc-700 hover:border-zinc-500 text-zinc-200 text-sm font-medium rounded transition-colors"
+      >
+        Sign In
+      </a>
+      <a
+        href="/register"
+        class="px-5 py-2.5 border border-zinc-700 hover:border-zinc-500 text-zinc-200 text-sm font-medium rounded transition-colors"
+      >
+        Register
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+      <div class="p-6 bg-zinc-900 border border-zinc-800 rounded-lg">
+        <h3 class="text-base font-semibold text-zinc-100 mb-2">MediaPipe FaceMesh</h3>
+        <p class="text-sm text-zinc-400">
+          Tracks facial landmarks and iris position coordinates in real-time from webcam feed.
+        </p>
+      </div>
+
+      <div class="p-6 bg-zinc-900 border border-zinc-800 rounded-lg">
+        <h3 class="text-base font-semibold text-zinc-100 mb-2">Eye Movement Graphs</h3>
+        <p class="text-sm text-zinc-400">
+          Plots horizontal and vertical pupil shifts, velocity variance, and Eye Aspect Ratio (EAR) blinks.
+        </p>
+      </div>
+
+      <div class="p-6 bg-zinc-900 border border-zinc-800 rounded-lg">
+        <h3 class="text-base font-semibold text-zinc-100 mb-2">Go Backend Engine</h3>
+        <p class="text-sm text-zinc-400">
+          Processes tracking telemetry, user sessions, and statistical metrics over WebSockets.
+        </p>
+      </div>
+    </div>
+  </div>
+</LandingLayout>

@@ -1,0 +1,10 @@
+---
+import Header from "../components/Header.astro";
+import Webcam from "../components/Webcam.svelte";
+import CustomHead from "../layouts/CustomHead.astro";
+---
+
+<CustomHead title="Webcam">
+  <Header />
+  <Webcam client:visible />
+</CustomHead>
