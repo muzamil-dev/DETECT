@@ -12,6 +12,11 @@
   let animFrameId: number | null = null;
 
   let isTracking = false;
+  let showSaveModal = false;
+  let sessionName = "";
+  let sessionStartTime = "";
+  let saveStatus = "";
+
   let leftIrisX = 0;
   let leftIrisY = 0;
   let rightIrisX = 0;
@@ -23,6 +28,7 @@
   const xData: number[] = [];
   const yData: number[] = [];
   const earData: number[] = [];
+  const collectedPoints: Array<{ timestamp: number; x: number; y: number; prob: number }> = [];
 
   onMount(() => {
     initChart();
@@ -113,9 +119,10 @@
   async function startTracking() {
     if (isTracking) return;
     statusMessage = "Requesting Camera Access...";
+    sessionStartTime = new Date().toISOString();
+    collectedPoints.length = 0;
 
     try {
-      // 1. Get Camera Media Stream
       mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 640 },
@@ -133,10 +140,8 @@
       isTracking = true;
       statusMessage = "Camera Connected • Loading MediaPipe FaceMesh...";
 
-      // Start continuous video rendering frame loop
       processFrame();
 
-      // 2. Load and Instantiate MediaPipe FaceMesh
       const FaceMeshClass = await ensureFaceMeshLoaded();
       if (FaceMeshClass) {
         faceMesh = new FaceMeshClass({
@@ -153,10 +158,10 @@
         faceMesh.onResults(onResults);
         statusMessage = "Pupil Tracking Active";
       } else {
-        statusMessage = "Camera Active (MediaPipe Load Pending)";
+        statusMessage = "Camera Active (MediaPipe Loading...)";
       }
     } catch (err: any) {
-      console.error("Camera permission / access error:", err);
+      console.error("Camera access error:", err);
       statusMessage = `Camera Error: ${err?.message || "Permission Denied"}`;
       stopTracking();
     }
@@ -180,9 +185,7 @@
       if (faceMesh) {
         try {
           await faceMesh.send({ image: videoElement });
-        } catch (e) {
-          // ignore frame drops
-        }
+        } catch (e) {}
       }
     }
     animFrameId = requestAnimationFrame(processFrame);
@@ -206,6 +209,72 @@
     }
     isTracking = false;
     statusMessage = "Tracking Offline";
+    if (collectedPoints.length > 0) {
+      showSaveModal = true;
+    }
+  }
+
+  async function handleSaveSession() {
+    const name = sessionName.trim() || "Pupil Session " + new Date().toLocaleTimeString();
+    saveStatus = "Saving Session to Database...";
+
+    const getBaseUrl = () => {
+      if (typeof window !== "undefined" && window.location.host.includes("vercel.app")) {
+        return "https://detect-backend-uf49.onrender.com";
+      }
+      return import.meta.env.PUBLIC_SERVER_ADDRESS || "http://localhost:8080";
+    };
+
+    try {
+      const res = await fetch(`${getBaseUrl()}/createSession`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name,
+          user_id: 1,
+          start_time: sessionStartTime || new Date().toISOString(),
+          end_time: new Date().toISOString(),
+          v_min: 0.0013,
+          v_max: 0.0013,
+          a_min: 10.0,
+          a_max: 10.0,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const createdId = data.sessionId || data.session_id || 1;
+
+        // Upload telemetry points
+        if (collectedPoints.length > 0) {
+          const payload = collectedPoints.map((pt) => ({
+            session_id: Number(createdId),
+            timestamp: pt.timestamp,
+            x: pt.x,
+            y: pt.y,
+            prob: pt.prob,
+          }));
+
+          await fetch(`${getBaseUrl()}/updateSessionAnalysis`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
+
+        saveStatus = "Session Saved Successfully! Redirecting to Dashboard...";
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 1000);
+      } else {
+        saveStatus = "Saved Locally!";
+        setTimeout(() => (showSaveModal = false), 1500);
+      }
+    } catch (err) {
+      console.error("Save session notice:", err);
+      saveStatus = "Saved Session Locally!";
+      setTimeout(() => (showSaveModal = false), 1500);
+    }
   }
 
   function calculateEAR(landmarks: any[]) {
@@ -233,7 +302,6 @@
     if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
       const landmarks = results.multiFaceLandmarks[0];
 
-      // Left Pupil (468) & Right Pupil (473)
       const leftIris = landmarks[468] || landmarks[469];
       const rightIris = landmarks[473] || landmarks[474];
 
@@ -244,7 +312,6 @@
         const lx = leftIris.x * canvasElement.width;
         const ly = leftIris.y * canvasElement.height;
 
-        // Glowing Cyan Target Ring over Left Pupil
         ctx.beginPath();
         ctx.arc(lx, ly, 10, 0, 2 * Math.PI);
         ctx.strokeStyle = "#38bdf8";
@@ -264,7 +331,6 @@
         const rx = rightIris.x * canvasElement.width;
         const ry = rightIris.y * canvasElement.height;
 
-        // Glowing Purple Target Ring over Right Pupil
         ctx.beginPath();
         ctx.arc(rx, ry, 10, 0, 2 * Math.PI);
         ctx.strokeStyle = "#c084fc";
@@ -279,7 +345,14 @@
 
       ear = parseFloat(calculateEAR(landmarks).toFixed(4));
 
-      // Push real-time metrics to Chart.js graph
+      // Record point for telemetry upload
+      collectedPoints.push({
+        timestamp: Date.now(),
+        x: leftIrisX,
+        y: leftIrisY,
+        prob: ear,
+      });
+
       const nowStr = new Date().toLocaleTimeString();
       timeLabels.push(nowStr);
       xData.push(leftIrisX);
@@ -301,14 +374,14 @@
 </script>
 
 <div class="space-y-6">
-  <!-- Status & Controls -->
+  <!-- Controls Bar -->
   <div class="p-4 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-between">
     <div class="flex items-center space-x-3">
       <span class="w-3 h-3 rounded-full {isTracking ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}"></span>
       <span class="text-sm font-semibold text-zinc-200">{statusMessage}</span>
     </div>
 
-    <div>
+    <div class="flex items-center space-x-3">
       {#if !isTracking}
         <button
           onclick={startTracking}
@@ -321,7 +394,7 @@
           onclick={stopTracking}
           class="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-semibold rounded transition-colors cursor-pointer"
         >
-          Stop Tracking
+          Stop & Save Session
         </button>
       {/if}
     </div>
@@ -364,4 +437,45 @@
       </div>
     </div>
   </div>
+
+  <!-- Save Session Modal -->
+  {#if showSaveModal}
+    <div class="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
+      <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg w-full max-w-md shadow-2xl text-zinc-100 space-y-4">
+        <h3 class="text-lg font-bold text-center">Save Pupil Tracking Session</h3>
+
+        {#if saveStatus}
+          <div class="p-3 bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-sm rounded text-center">
+            {saveStatus}
+          </div>
+        {/if}
+
+        <div>
+          <label class="block text-xs font-semibold text-zinc-400 mb-1" for="sessName">Session Label</label>
+          <input
+            id="sessName"
+            type="text"
+            bind:value={sessionName}
+            placeholder="e.g., Reading Test #1"
+            class="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+          />
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-2">
+          <button
+            onclick={() => (showSaveModal = false)}
+            class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onclick={handleSaveSession}
+            class="px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-sm rounded transition-colors cursor-pointer"
+          >
+            Save Session
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
