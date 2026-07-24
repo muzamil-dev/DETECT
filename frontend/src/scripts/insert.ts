@@ -1,20 +1,26 @@
 import { tick } from "svelte";
 
-// Define the structure of the analysis data
 export type AnalysisData = {
 	session_id: number;
 	timestamp: number;
 	x: number;
 	y: number;
 	prob: number;
-  };
+};
   
-  const serverAddress = import.meta.env.PUBLIC_SERVER_ADDRESS;
-  // Function to send analysis data to the server
-  export async function insertAnalysisData(analysisEntries: AnalysisData[]) {
+const getBaseUrl = () => {
+  if (typeof window !== "undefined" && window.location.host.includes("vercel.app")) {
+    return "https://detect-backend-uf49.onrender.com";
+  }
+  return import.meta.env.PUBLIC_SERVER_ADDRESS || "http://localhost:8080";
+};
+
+export async function insertAnalysisData(analysisEntries: AnalysisData[]) {
 	try {
-		await tick(); // Ensures the sessionId update is applied
-	  	const response = await fetch(`${serverAddress}/updateSessionAnalysis`, {
+		await tick();
+		if (!analysisEntries || analysisEntries.length === 0) return;
+
+	  	const response = await fetch(`${getBaseUrl()}/updateSessionAnalysis`, {
 		method: "POST",
 		headers: {
 		  "Content-Type": "application/json",
@@ -28,10 +34,9 @@ export type AnalysisData = {
 	  }
   
 	  const result = await response.json();
-	  console.log(result.message); // Handle success message
+	  console.log("Analysis insert result:", result.message || result);
   
 	} catch (error) {
 	  console.error("Error inserting analysis data:", error);
 	}
-  }
-  
+}

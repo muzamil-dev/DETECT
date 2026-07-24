@@ -5,7 +5,12 @@ import { tick } from "svelte";
 
 export const sessionId = writable<number | null>(null); 
 
-const serverAddress = import.meta.env.PUBLIC_SERVER_ADDRESS
+const getBaseUrl = () => {
+  if (typeof window !== "undefined" && window.location.host.includes("vercel.app")) {
+    return "https://detect-backend-uf49.onrender.com";
+  }
+  return import.meta.env.PUBLIC_SERVER_ADDRESS || "http://localhost:8080";
+};
 
 export async function createSession(sessionData: {
   name: string;
@@ -18,36 +23,45 @@ export async function createSession(sessionData: {
 }) {
   try {
     await tick();
-    const userId = sessionStorage.getItem("userId");
+    const userId = sessionStorage.getItem("userId") || "1";
 
-    if (!userId) {
-      throw new Error("User ID is not found in sessionStorage");
-    }
-    const response = await fetch(`${serverAddress}/createSession`, {
+    const payload = {
+      name: sessionData.name || "Session",
+      user_id: Number(userId),
+      start_time: sessionData.start_time,
+      end_time: sessionData.end_time,
+      v_min: sessionData.var_min ?? 0,
+      v_max: sessionData.var_max ?? 0,
+      a_min: sessionData.acc_min ?? 0,
+      a_max: sessionData.acc_max ?? 0,
+      var_min: sessionData.var_min ?? 0,
+      var_max: sessionData.var_max ?? 0,
+      acc_min: sessionData.acc_min ?? 0,
+      acc_max: sessionData.acc_max ?? 0,
+    };
+
+    const response = await fetch(`${getBaseUrl()}/createSession`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        ...sessionData,
-        user_id: Number(userId),
-      }),
+      body: JSON.stringify(payload),
     });
 
-    console.log(sessionData);
+    console.log("Creating session:", payload);
 
     if (!response.ok) {
       throw new Error("Failed to create session");
     }
 
     const result = await response.json();
-    console.log(result.message); // Handle success message
+    console.log("Session created response:", result);
 
-    // Save sessionId to store
-    if (result.sessionId) {
-      sessionId.set(Number(result.sessionId)); // Ensure it's treated as a number
-      await tick(); // Wait for Svelte to update sessionId
-      uploadData(); // Upload the data to the server
+    const createdId = result.sessionId || result.session_id;
+    if (createdId) {
+      sessionId.set(Number(createdId));
+      await tick();
+      uploadData();
     }    
 
   } catch (error) {
@@ -56,21 +70,18 @@ export async function createSession(sessionData: {
 }
 
 async function uploadData() {
-  await tick(); // Ensures the sessionId update is applied
-  
+  await tick();
   const currentSessionId = get(sessionId);
-  console.log("Session Id:", currentSessionId);
+  console.log("Session Id for telemetry upload:", currentSessionId);
   if (currentSessionId) {
-    console.log("analysisData before updates:", get(analysisData));
     analysisData.update((data) => {
       return data.map(item => ({
         ...item,
         session_id: currentSessionId,
       }));
     });
-    console.log("analysisData after updates:", get(analysisData));
     insertAnalysisData(get(analysisData));
   } else {
-    console.error('Session ID is not available');
+    console.error('Session ID is not available for uploadData');
   }
 }

@@ -40,12 +40,15 @@ export class WebSocketConnection {
   private url: string;
   private onMessageCallback: (data: any) => void;
 
+  private closedExplicitly = false;
+
   constructor(url: string, onMessageCallback: (data: any) => void) {
     this.url = url;
     this.onMessageCallback = onMessageCallback;
   }
 
   public start() {
+    this.closedExplicitly = false;
     if (this.ws) {
       this.ws.close(); // Ensure no duplicate connections
     }
@@ -63,10 +66,12 @@ export class WebSocketConnection {
       sessionStorage.setItem("variance", get(variance)?.toString() || "0.0013");
       sessionStorage.setItem("acceleration", get(acceleration)?.toString() || "10.0");
 
-      setTimeout(() => {
-        console.log("🔄 Reconnecting WebSocket...");
-        this.start();
-      }, 3000);
+      if (!this.closedExplicitly) {
+        setTimeout(() => {
+          console.log("🔄 Reconnecting WebSocket...");
+          this.start();
+        }, 3000);
+      }
     };
 
     this.ws.onerror = (error) => {
