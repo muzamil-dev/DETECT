@@ -12,7 +12,7 @@
   let animId: number | null = null;
 
   let isTracking = false;
-  let statusText = "Ready";
+  let statusText = "Camera Offline";
 
   let lx = 0, ly = 0, rx = 0, ry = 0;
 
@@ -66,6 +66,19 @@
     if (chart) chart.destroy();
   });
 
+  async function ensureFaceMeshLoaded(): Promise<any> {
+    if (typeof window === "undefined") return null;
+    if ((window as any).FaceMesh) return (window as any).FaceMesh;
+
+    return new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.src = "/mediapipe/face_mesh.js";
+      s.onload = () => resolve((window as any).FaceMesh);
+      s.onerror = () => resolve(null);
+      document.head.appendChild(s);
+    });
+  }
+
   async function start() {
     if (isTracking) return;
     statusText = "Requesting Camera Access...";
@@ -76,19 +89,21 @@
         audio: false,
       });
 
-      videoEl.srcObject = stream;
-      await videoEl.play();
+      if (videoEl) {
+        videoEl.srcObject = stream;
+        await videoEl.play();
+      }
 
       isTracking = true;
-      statusText = "Camera Active • Initializing MediaPipe...";
+      statusText = "Camera Active • Loading MediaPipe Engine...";
 
-      // Start processing frames
+      // Continuous render loop
       loop();
 
-      const FaceMeshClass = (window as any).FaceMesh;
+      const FaceMeshClass = await ensureFaceMeshLoaded();
       if (FaceMeshClass) {
         faceMesh = new FaceMeshClass({
-          locateFile: (f: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`,
+          locateFile: (file: string) => `/mediapipe/${file}`,
         });
         faceMesh.setOptions({
           maxNumFaces: 1,
@@ -97,11 +112,12 @@
           minTrackingConfidence: 0.5,
         });
         faceMesh.onResults(onResults);
-        statusText = "Tracking Active (Green Dots On Pupils)";
+        statusText = "Pupil Tracking Active (Green Dots On)";
       } else {
-        statusText = "Camera Active (Loading MediaPipe...)";
+        statusText = "Camera Active (MediaPipe Load Pending)";
       }
     } catch (e: any) {
+      console.error("Camera access error:", e);
       statusText = "Camera Error: " + (e?.message || "Permission Denied");
       stop();
     }
@@ -151,10 +167,10 @@
     if (res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
       const lms = res.multiFaceLandmarks[0];
 
-      // Primary: Iris landmark 468 (Left) & 473 (Right)
-      // Fallback: Eye Corner center (33 + 133) / 2 and (362 + 263) / 2
-      let pLeft = lms[468] || (lms[33] && lms[133] ? { x: (lms[33].x + lms[133].x) / 2, y: (lms[33].y + lms[133].y) / 2 } : null);
-      let pRight = lms[473] || (lms[362] && lms[263] ? { x: (lms[362].x + lms[263].x) / 2, y: (lms[362].y + lms[263].y) / 2 } : null);
+      // Primary: Iris landmark 468 (Left Pupil) & 473 (Right Pupil)
+      // Fallback: Eye Corner Center (33 + 133) / 2 and (362 + 263) / 2
+      const pLeft = lms[468] || (lms[33] && lms[133] ? { x: (lms[33].x + lms[133].x) / 2, y: (lms[33].y + lms[133].y) / 2 } : null);
+      const pRight = lms[473] || (lms[362] && lms[263] ? { x: (lms[362].x + lms[263].x) / 2, y: (lms[362].y + lms[263].y) / 2 } : null);
 
       if (pLeft) {
         lx = parseFloat(pLeft.x.toFixed(4));
@@ -165,10 +181,10 @@
 
         // BRIGHT GLOWING GREEN DOT OVER LEFT PUPIL
         ctx.beginPath();
-        ctx.arc(px, py, 8, 0, 2 * Math.PI);
+        ctx.arc(px, py, 9, 0, 2 * Math.PI);
         ctx.fillStyle = "#00FF00";
         ctx.fill();
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.strokeStyle = "#FFFFFF";
         ctx.stroke();
       }
@@ -182,10 +198,10 @@
 
         // BRIGHT GLOWING GREEN DOT OVER RIGHT PUPIL
         ctx.beginPath();
-        ctx.arc(px, py, 8, 0, 2 * Math.PI);
+        ctx.arc(px, py, 9, 0, 2 * Math.PI);
         ctx.fillStyle = "#00FF00";
         ctx.fill();
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.strokeStyle = "#FFFFFF";
         ctx.stroke();
       }
@@ -219,7 +235,7 @@
           onclick={start}
           class="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm rounded transition-colors cursor-pointer"
         >
-          Start Camera (Green Dots)
+          Start Camera (Green Pupil Dots)
         </button>
       {:else}
         <button
