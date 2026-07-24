@@ -503,7 +503,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 			fileServer := http.FileServer(http.Dir(staticDir))
 			r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				path := staticDir + r.URL.Path
-				if _, err := os.Stat(path); os.IsNotExist(err) {
+				fi, err := os.Stat(path)
+				if os.IsNotExist(err) || (fi != nil && fi.IsDir() && r.URL.Path == "/") {
 					http.ServeFile(w, r, staticDir+"/index.html")
 					return
 				}

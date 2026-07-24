@@ -19,8 +19,12 @@ type Server struct {
 // NewServer initializes and returns an HTTP server.
 func NewServer() *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	if port == 0 {
+		port = 8080
+	}
 	serverInstance := &Server{
 		port: port,
+		db:   database.New(),
 	}
 
 	handler := serverInstance.RegisterRoutes()
