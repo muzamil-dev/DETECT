@@ -75,7 +75,7 @@
 
   let sensitivity: number | null = null;
 
-  export const shouldShowGraph = writable(false);
+  export const shouldShowGraph = writable(true);
 
   let affineTransformEnabled = writable(false);
 
@@ -91,7 +91,7 @@
   userSettings.subscribe((settings: any) => {
     console.log("User settings:", settings);
     sensitivity = settings.sensitivity;
-    shouldShowGraph.set(settings.plotting ?? false);
+    shouldShowGraph.set(settings.plotting ?? true);
     affineTransformEnabled.set(settings.affine ?? false);
     minMaxEnabled.set(settings.min_max ?? false);
   });

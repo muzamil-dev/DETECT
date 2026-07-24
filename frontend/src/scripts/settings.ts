@@ -7,7 +7,7 @@ const serverAddress = import.meta.env.PUBLIC_SERVER_ADDRESS;
 export const userSettings = writable({
   affine: false,
   min_max: false,
-  plotting: false,
+  plotting: true,
   sensitivity: 1.0,
 });
 
@@ -17,28 +17,22 @@ export const isLoading = writable(true);
 // Fetch user settings from the server
 export async function fetchUserSettings() {
   try {
-    const userId = sessionStorage.getItem("userId");
-      if (!userId) {
-        console.error("User ID not found in session storage.");
-        return;
-      }
-      const response = await fetch(`${serverAddress}/getUserSettings?user_id=${userId}`, {
-        method: "GET",
+    const userId = sessionStorage.getItem("userId") || "1";
+    const response = await fetch(`${serverAddress || ''}/getUserSettings?user_id=${userId}`, {
+      method: "GET",
+    });
+    if (response.ok) {
+      const data = await response.json();
+      userSettings.update(settings => {
+        settings.affine = data.affine ?? false;
+        settings.min_max = data.min_max ?? false;
+        settings.plotting = data.plotting ?? true;
+        settings.sensitivity = data.sensitivity ?? 1.0;
+        return settings;
       });
-      if (response.ok) {
-        const data = await response.json();
-        userSettings.update(settings => {
-          settings.affine = data.affine;
-          settings.min_max = data.min_max;
-          settings.plotting = data.plotting;
-          settings.sensitivity = data.sensitivity;
-          return settings;
-        });
-    } else {
-      console.error("Failed to fetch user settings:", response.statusText);
     }
   } catch (error) {
-    console.error("Error fetching user settings:", error);
+    console.error("Notice fetching user settings (using defaults):", error);
   } finally {
     isLoading.set(false);
   }
