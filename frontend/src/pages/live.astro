@@ -1,10 +1,15 @@
 ---
-import Header from "../components/Header.astro";
-import Webcam from "../components/Webcam.svelte";
-import CustomHead from "../layouts/CustomHead.astro";
+import Main from "../layouts/Main.astro";
+import PupilTracker from "../components/PupilTracker.svelte";
 ---
 
-<CustomHead title="Webcam">
-  <Header />
-  <Webcam client:visible />
-</CustomHead>
+<Main>
+  <div class="space-y-6">
+    <div class="border-b border-zinc-800 pb-4">
+      <h1 class="text-2xl font-bold text-zinc-100">Live Camera Pupil Tracking</h1>
+      <p class="text-sm text-zinc-400 mt-1">Real-time MediaPipe FaceMesh pupil tracking with live line graph plotting.</p>
+    </div>
+
+    <PupilTracker client:load />
+  </div>
+</Main>
